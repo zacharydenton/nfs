@@ -487,8 +487,8 @@ class Game
         @mx = Math.max(Math.min(@mx, 1), -1)
         @my = Math.max(Math.min(@my, 1), -1)
       when 2
-        @mx = Math.max(Math.min((@mouseX / @windowHalfX) * @sen, 1), -1)
-        @my = Math.max(Math.min((@mouseY / @windowHalfY) * @sen, 1), -1)
+        @mx = Math.max(Math.min(@mouseX * @sen, 1), -1)
+        @my = Math.max(Math.min(@mouseY * @sen, 1), -1)
   
     if @yInvert == 1 then @my = -@my
   

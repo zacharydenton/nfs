@@ -1,5 +1,5 @@
 (function() {
-  var Game, cameraEnabled, canvasCtx, canvasInput, drawIdent, enableStart, gUMnCamera, htracker, videoInput,
+  var Game, cameraEnabled, canvasCtx, canvasInput, drawIdent, enableStart, gUMnCamera, htracker, offsetX, offsetY, videoInput,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   Game = (function() {
@@ -532,8 +532,8 @@
           this.my = Math.max(Math.min(this.my, 1), -1);
           break;
         case 2:
-          this.mx = Math.max(Math.min((this.mouseX / this.windowHalfX) * this.sen, 1), -1);
-          this.my = Math.max(Math.min((this.mouseY / this.windowHalfY) * this.sen, 1), -1);
+          this.mx = Math.max(Math.min(this.mouseX * this.sen, 1), -1);
+          this.my = Math.max(Math.min(this.mouseY * this.sen, 1), -1);
       }
       if (this.yInvert === 1) {
         this.my = -this.my;
@@ -696,6 +696,8 @@
 
   cameraEnabled = false;
 
+  offsetX = offsetY = 0;
+
   videoInput = document.createElement("video");
 
   videoInput.setAttribute("loop", "true");
@@ -798,8 +800,12 @@
   }), false);
 
   document.addEventListener("headtrackingEvent", (function(e) {
-    game.mouseX = e.x * 20;
-    return game.mouseY = -e.y * 20;
+    if (offsetX === 0 && offsetY === 0) {
+      offsetX = e.x;
+      offsetY = e.y;
+    }
+    game.mouseX = (e.x - offsetX) * 0.08;
+    return game.mouseY = -(e.y - offsetY) * 0.08;
   }), false);
 
 }).call(this);

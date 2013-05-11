@@ -1,4 +1,5 @@
 cameraEnabled = false
+offsetX = offsetY = 0
 
 videoInput = document.createElement("video")
 videoInput.setAttribute "loop", "true"
@@ -89,6 +90,10 @@ document.addEventListener "facetrackingEvent", ((e) ->
   drawIdent canvasCtx, e.x, e.y
 ), false
 document.addEventListener "headtrackingEvent", ((e) ->
-  game.mouseX = e.x * 20
-  game.mouseY = -e.y * 20
+  if offsetX == 0 and offsetY == 0
+    offsetX = e.x
+    offsetY = e.y
+  game.mouseX = (e.x - offsetX) * 0.08
+  game.mouseY = -(e.y - offsetY) * 0.08
+
 ), false
