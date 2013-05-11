@@ -27,6 +27,7 @@ class Game
     @p = new Array()
     @sensList = ['low', 'default', 'high', 'very high', 'extreme']
     @sensValue = [1, 1.3, 1.6, 2, 4]
+    @controlsList = ['mouse', 'arrows / WASD', 'head tracking']
 
     @introReset false
     @init()
@@ -58,7 +59,8 @@ class Game
       @updateUI()
   
     $('#op_controls').on 'click', =>
-      @controls = 1 - @controls
+      @controls += 1
+      @controls %= 3
       @updateUI()
   
     $('#op_yinvert').on 'click', =>
@@ -107,7 +109,6 @@ class Game
     @windowHalfY = @windowY / 2
     @camera.aspect = @windowX / @windowY
     @camera.updateProjectionMatrix()
-    console.log @windowX, @windowY
     @renderer.setSize @windowX, @windowY
     @fullscreen = @windowX == window.outerWidth
   
@@ -123,7 +124,7 @@ class Game
   updateUI: ->
     $('#op_sensitivity').html "controls sensitivity : #{@sensList[@sensitivity]}"
     $('#op_1stperson').html "automatic 1st/3rd person : #{if @autoSwitch then 'yes' else 'no'}"
-    $('#op_controls').html "controls : #{if @controls == 0 then 'mouse' else 'arrows / WASD'}"
+    $('#op_controls').html "controls : #{@controlsList[@controls]}"
     $('#op_yinvert').html  "invert Y axis : #{if @yInvert == 0 then 'no' else 'yes'}"
   
     @set 'fk2sensitivity', @sensitivity
@@ -301,15 +302,18 @@ class Game
           @zCamera2 = -220
   
   onDocumentMouseMove: (event) =>
-    @mouseX = (event.clientX - @windowHalfX) / @windowX * 2
-    @mouseY = (event.clientY - @windowHalfY) / @windowY * 2
-  
+    if @controls == 0
+      @mouseX = (event.clientX - @windowHalfX) / @windowX * 2
+      @mouseY = (event.clientY - @windowHalfY) / @windowY * 2
+
   init: =>
     @sensitivity = @get 'fk2sensitivity', 1
     @autoSwitch = @get 'fk2autoswitch', 1
-    @controls = @get 'fk2controls', 0
+    @controls = @get 'fk2controls', 2
     @yInvert = @get 'fk2yinvert', 0
-  
+    videoInput = document.getElementById('inputVideo')
+    canvasInput = document.getElementById('inputCanvas')
+
     $(window).on 'keyup', @onKeyUp
     $(window).on 'keydown', @onKeyDown
     $(window).on 'keypress', @onKeyPress
@@ -471,16 +475,20 @@ class Game
   
     @light2.color.setHSL @clight, 0.3, 0.5
   
-    if @controls == 0
-      @mx = Math.max(Math.min(@mouseX * @sen, 1), -1)
-      @my = Math.max(Math.min(@mouseY * @sen, 1), -1)
-    else
-      if @keyUp then @my -= 0.002 * @dtm * @sen
-      if @keyDown then @my += 0.002 * @dtm * @sen
-      if @keyLeft then @mx -= 0.003 * @dtm * @sen
-      if @keyRight then @mx += 0.003 * @dtm * @sen
-      @mx = Math.max(Math.min(@mx, 1), -1)
-      @my = Math.max(Math.min(@my, 1), -1)
+    switch @controls
+      when 0
+        @mx = Math.max(Math.min(@mouseX * @sen, 1), -1)
+        @my = Math.max(Math.min(@mouseY * @sen, 1), -1)
+      when 1
+        if @keyUp then @my -= 0.002 * @dtm * @sen
+        if @keyDown then @my += 0.002 * @dtm * @sen
+        if @keyLeft then @mx -= 0.003 * @dtm * @sen
+        if @keyRight then @mx += 0.003 * @dtm * @sen
+        @mx = Math.max(Math.min(@mx, 1), -1)
+        @my = Math.max(Math.min(@my, 1), -1)
+      when 2
+        @mx = Math.max(Math.min((@mouseX / @windowHalfX) * @sen, 1), -1)
+        @my = Math.max(Math.min((@mouseY / @windowHalfY) * @sen, 1), -1)
   
     if @yInvert == 1 then @my = -@my
   
@@ -503,7 +511,6 @@ class Game
       @yRatio = 1
   
     @zCamera = @zCamera - (@zCamera - @zCamera2)  / 10
-  
     @camera.position =
       x: @shipX * @xRatio
       y: @shipY * @yRatio
@@ -631,3 +638,4 @@ class Game
   
 $ ->
   window.game = new Game()
+

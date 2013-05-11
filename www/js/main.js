@@ -1,5 +1,5 @@
 (function() {
-  var Game,
+  var Game, cameraEnabled, canvasCtx, canvasInput, drawIdent, enableStart, gUMnCamera, htracker, videoInput,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   Game = (function() {
@@ -40,6 +40,7 @@
       this.p = new Array();
       this.sensList = ['low', 'default', 'high', 'very high', 'extreme'];
       this.sensValue = [1, 1.3, 1.6, 2, 4];
+      this.controlsList = ['mouse', 'arrows / WASD', 'head tracking'];
       this.introReset(false);
       this.init();
       this.animate();
@@ -69,7 +70,8 @@
         return _this.updateUI();
       });
       $('#op_controls').on('click', function() {
-        _this.controls = 1 - _this.controls;
+        _this.controls += 1;
+        _this.controls %= 3;
         return _this.updateUI();
       });
       $('#op_yinvert').on('click', function() {
@@ -124,7 +126,6 @@
       this.windowHalfY = this.windowY / 2;
       this.camera.aspect = this.windowX / this.windowY;
       this.camera.updateProjectionMatrix();
-      console.log(this.windowX, this.windowY);
       this.renderer.setSize(this.windowX, this.windowY);
       return this.fullscreen = this.windowX === window.outerWidth;
     };
@@ -149,7 +150,7 @@
     Game.prototype.updateUI = function() {
       $('#op_sensitivity').html("controls sensitivity : " + this.sensList[this.sensitivity]);
       $('#op_1stperson').html("automatic 1st/3rd person : " + (this.autoSwitch ? 'yes' : 'no'));
-      $('#op_controls').html("controls : " + (this.controls === 0 ? 'mouse' : 'arrows / WASD'));
+      $('#op_controls').html("controls : " + this.controlsList[this.controls]);
       $('#op_yinvert').html("invert Y axis : " + (this.yInvert === 0 ? 'no' : 'yes'));
       this.set('fk2sensitivity', this.sensitivity);
       this.set('fk2autoswitch', this.autoSwitch);
@@ -347,17 +348,21 @@
     };
 
     Game.prototype.onDocumentMouseMove = function(event) {
-      this.mouseX = (event.clientX - this.windowHalfX) / this.windowX * 2;
-      return this.mouseY = (event.clientY - this.windowHalfY) / this.windowY * 2;
+      if (this.controls === 0) {
+        this.mouseX = (event.clientX - this.windowHalfX) / this.windowX * 2;
+        return this.mouseY = (event.clientY - this.windowHalfY) / this.windowY * 2;
+      }
     };
 
     Game.prototype.init = function() {
-      var a, canvas, i, mesh_tmp, obs, r, vector, _i, _j;
+      var a, canvas, canvasInput, i, mesh_tmp, obs, r, vector, videoInput, _i, _j;
 
       this.sensitivity = this.get('fk2sensitivity', 1);
       this.autoSwitch = this.get('fk2autoswitch', 1);
-      this.controls = this.get('fk2controls', 0);
+      this.controls = this.get('fk2controls', 2);
       this.yInvert = this.get('fk2yinvert', 0);
+      videoInput = document.getElementById('inputVideo');
+      canvasInput = document.getElementById('inputCanvas');
       $(window).on('keyup', this.onKeyUp);
       $(window).on('keydown', this.onKeyDown);
       $(window).on('keypress', this.onKeyPress);
@@ -505,24 +510,30 @@
         $('#body').css('background-color', "rgb(" + tmp + ", " + (tmp / 2) + ", 0)");
       }
       this.light2.color.setHSL(this.clight, 0.3, 0.5);
-      if (this.controls === 0) {
-        this.mx = Math.max(Math.min(this.mouseX * this.sen, 1), -1);
-        this.my = Math.max(Math.min(this.mouseY * this.sen, 1), -1);
-      } else {
-        if (this.keyUp) {
-          this.my -= 0.002 * this.dtm * this.sen;
-        }
-        if (this.keyDown) {
-          this.my += 0.002 * this.dtm * this.sen;
-        }
-        if (this.keyLeft) {
-          this.mx -= 0.003 * this.dtm * this.sen;
-        }
-        if (this.keyRight) {
-          this.mx += 0.003 * this.dtm * this.sen;
-        }
-        this.mx = Math.max(Math.min(this.mx, 1), -1);
-        this.my = Math.max(Math.min(this.my, 1), -1);
+      switch (this.controls) {
+        case 0:
+          this.mx = Math.max(Math.min(this.mouseX * this.sen, 1), -1);
+          this.my = Math.max(Math.min(this.mouseY * this.sen, 1), -1);
+          break;
+        case 1:
+          if (this.keyUp) {
+            this.my -= 0.002 * this.dtm * this.sen;
+          }
+          if (this.keyDown) {
+            this.my += 0.002 * this.dtm * this.sen;
+          }
+          if (this.keyLeft) {
+            this.mx -= 0.003 * this.dtm * this.sen;
+          }
+          if (this.keyRight) {
+            this.mx += 0.003 * this.dtm * this.sen;
+          }
+          this.mx = Math.max(Math.min(this.mx, 1), -1);
+          this.my = Math.max(Math.min(this.my, 1), -1);
+          break;
+        case 2:
+          this.mx = Math.max(Math.min((this.mouseX / this.windowHalfX) * this.sen, 1), -1);
+          this.my = Math.max(Math.min((this.mouseY / this.windowHalfY) * this.sen, 1), -1);
       }
       if (this.yInvert === 1) {
         this.my = -this.my;
@@ -682,5 +693,113 @@
   $(function() {
     return window.game = new Game();
   });
+
+  cameraEnabled = false;
+
+  videoInput = document.createElement("video");
+
+  videoInput.setAttribute("loop", "true");
+
+  videoInput.setAttribute("autoplay", "true");
+
+  videoInput.setAttribute("width", "320");
+
+  videoInput.setAttribute("height", "240");
+
+  document.body.appendChild(videoInput);
+
+  gUMnCamera = function() {
+    var gumSupported, messages;
+
+    gumSupported = true;
+    cameraEnabled = true;
+    return messages = ["trying to detect face", "please wait"];
+  };
+
+  enableStart = function() {
+    document.getElementById("but").className = "";
+    document.getElementById("start").innerHTML = "START";
+    return document.getElementById("start").addEventListener("click", start, true);
+  };
+
+  document.addEventListener("headtrackrStatus", (function(e) {
+    switch (e.status) {
+      case "camera found":
+        return gUMnCamera();
+      case "no getUserMedia":
+        return noGUM();
+      case "no camera":
+        return noCamera();
+      case "found":
+        return enableStart();
+    }
+  }), false);
+
+  canvasInput = document.createElement("canvas");
+
+  canvasInput.setAttribute("width", "320");
+
+  canvasInput.setAttribute("height", "240");
+
+  htracker = new headtrackr.Tracker({
+    smoothing: false,
+    fadeVideo: true,
+    ui: false
+  });
+
+  htracker.init(videoInput, canvasInput);
+
+  htracker.start();
+
+  canvasInput = document.createElement("canvas");
+
+  canvasInput.setAttribute("width", videoInput.clientWidth);
+
+  canvasInput.setAttribute("height", videoInput.clientHeight);
+
+  document.body.appendChild(canvasInput);
+
+  canvasInput.style.position = "absolute";
+
+  canvasInput.style.top = "60px";
+
+  canvasInput.style.left = "10px";
+
+  canvasInput.style.zIndex = "1002";
+
+  canvasInput.style.display = "block";
+
+  canvasCtx = canvasInput.getContext("2d");
+
+  canvasCtx.strokeStyle = "#999";
+
+  canvasCtx.lineWidth = 2;
+
+  drawIdent = function(cContext, x, y) {
+    x = (x / 320) * canvasInput.width;
+    y = (y / 240) * canvasInput.height;
+    x = canvasInput.width - x;
+    cContext.clearRect(0, 0, canvasInput.width, canvasInput.height);
+    cContext.strokeRect(0, 0, canvasInput.width, canvasInput.height);
+    cContext.beginPath();
+    cContext.moveTo(x - 5, y);
+    cContext.lineTo(x + 5, y);
+    cContext.closePath();
+    cContext.stroke();
+    cContext.beginPath();
+    cContext.moveTo(x, y - 5);
+    cContext.lineTo(x, y + 5);
+    cContext.closePath();
+    return cContext.stroke();
+  };
+
+  document.addEventListener("facetrackingEvent", (function(e) {
+    return drawIdent(canvasCtx, e.x, e.y);
+  }), false);
+
+  document.addEventListener("headtrackingEvent", (function(e) {
+    game.mouseX = e.x * 20;
+    return game.mouseY = -e.y * 20;
+  }), false);
 
 }).call(this);
