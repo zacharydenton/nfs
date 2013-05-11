@@ -7,7 +7,7 @@ module.exports = (grunt) ->
         options:
           join: true
         files:
-          'www/js/app.js': 'src/**/*.coffee'
+          'www/js/main.js': 'src/**/*.coffee'
     less:
       app:
         options:
@@ -17,7 +17,7 @@ module.exports = (grunt) ->
     watch:
       app:
         files: ['src/**/*.coffee', 'src/**/*.less', 'src/**/*.html']
-        tasks: ['coffee', 'less', 'jst', 'uglify', 'cssmin']
+        tasks: ['coffee', 'less']
     connect:
       server:
         options:
