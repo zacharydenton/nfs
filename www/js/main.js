@@ -192,14 +192,14 @@
     };
 
     Game.prototype.fireWeapon = function() {
-      var attributes, i, material, range, sprite, texture, total, _i;
+      var i, material, range, sprite, texture, total, _i;
 
       if (this.bullet != null) {
         return;
       }
       texture = THREE.ImageUtils.loadTexture('img/spark.png');
       this.bullet = new THREE.Object3D();
-      attributes = {
+      this.bullet.attributes = {
         startSize: [],
         startPosition: [],
         randomness: []
@@ -219,8 +219,8 @@
         sprite.material.color.setHSL(Math.random(), 0.9, 0.7);
         sprite.material.blending = THREE.AdditiveBlending;
         this.bullet.add(sprite);
-        attributes.startPosition.push(sprite.position.clone());
-        attributes.randomness.push(Math.random());
+        this.bullet.attributes.startPosition.push(sprite.position.clone());
+        this.bullet.attributes.randomness.push(Math.random());
       }
       this.bullet.position = {
         x: this.ship.position.x,
@@ -267,7 +267,7 @@
     };
 
     Game.prototype.generateShip = function() {
-      var enginemat, enginepng, geometry_cube, geometry_cyl, geometry_cyl2, group, material, mergedGeo, mesh, mesh2, mesh3, scale;
+      var createExhaust, geometry_cube, geometry_cyl, geometry_cyl2, group, material, mergedGeo, mesh, mesh2, mesh3, texture;
 
       mergedGeo = new THREE.Geometry();
       geometry_cube = new THREE.CubeGeometry(50, 50, 50);
@@ -317,21 +317,41 @@
       group.matrixAutoUpdate = true;
       group.updateMatrix();
       this.scene.add(group);
-      scale = 0.08;
-      enginepng = THREE.ImageUtils.loadTexture("img/engine_small.png");
-      enginemat = new THREE.SpriteMaterial({
-        map: enginepng,
-        color: 0xffffff,
-        fog: true,
-        useScreenCoordinates: false
-      });
-      this.engine_lt = new THREE.Sprite(enginemat.clone());
+      texture = THREE.ImageUtils.loadTexture("img/spark.png");
+      createExhaust = function() {
+        var exhaust, i, range, sprite, total, _i;
+
+        exhaust = new THREE.Object3D();
+        exhaust.attributes = {
+          startSize: [],
+          startPosition: [],
+          randomness: []
+        };
+        total = 200;
+        range = 10;
+        for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
+          material = new THREE.SpriteMaterial({
+            map: texture,
+            useScreenCoordinates: false,
+            color: 0xffffff
+          });
+          sprite = new THREE.Sprite(material);
+          sprite.scale.set(4, 4, 1.0);
+          sprite.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+          sprite.position.setLength(range * Math.random());
+          sprite.material.color.setHSL(0.6 + 0.1 * Math.random(), 0.9, 0.7);
+          sprite.material.blending = THREE.AdditiveBlending;
+          exhaust.add(sprite);
+          exhaust.attributes.startPosition.push(sprite.position.clone());
+          exhaust.attributes.randomness.push(Math.random());
+        }
+        return exhaust;
+      };
+      this.engine_lt = createExhaust();
       this.engine_lt.position.set(-20, 0, 35);
-      this.engine_lt.scale.set(128, 128, 1.0);
       group.add(this.engine_lt);
-      this.engine_rt = new THREE.Sprite(enginemat.clone());
+      this.engine_rt = createExhaust();
       this.engine_rt.position.set(20, 0, 35);
-      this.engine_rt.scale.set(128, 128, 1.0);
       group.add(this.engine_rt);
       return group;
     };
@@ -533,7 +553,7 @@
     };
 
     Game.prototype.renderGame = function() {
-      var engop, obj, r, sp, tmp, _i, _len, _ref;
+      var a, c, collision, exhaust, obj, pulseFactor, r, sp, sprite, tmp, x, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
 
       if (this.speed > 0) {
         this.clight = this.speed / this.speedLimit;
@@ -616,26 +636,37 @@
         this.particles[1].position.z -= this.fogDepth * 2;
       }
       if (this.bullet != null) {
-        this.bullet.position.z -= this.speedLimit / 2;
+        this.bullet.position.z -= this.speedLimit / 4;
         if (this.bullet.position.z < -10000) {
           this.scene.remove(this.bullet);
           this.bullet = null;
         } else {
           this.bullet.rotation.x -= 0.1;
           this.bullet.rotation.y += 0.03;
+          _ref = this.bullet.children;
+          for (c = _i = 0, _len = _ref.length; _i < _len; c = ++_i) {
+            sprite = _ref[c];
+            a = this.bullet.attributes.randomness[c] + 1;
+            pulseFactor = Math.sin(a * this.tm / 100) * 0.8 + 0.9;
+            sprite.position.x = this.bullet.attributes.startPosition[c].x * pulseFactor;
+            sprite.position.y = this.bullet.attributes.startPosition[c].y * pulseFactor;
+            sprite.position.z = this.bullet.attributes.startPosition[c].z * pulseFactor;
+          }
         }
       }
-      _ref = this.objs.children;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        obj = _ref[_i];
+      _ref1 = this.objs.children;
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        obj = _ref1[_j];
         obj.rotation.x += 0.01;
         obj.rotation.y += 0.005;
         obj.position.z += this.speed;
-        if ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 100 && Math.abs(this.bullet.position.y - obj.position.y) < 100 && Math.abs(this.bullet.position.z - obj.position.z) < 100) {
+        collision = false;
+        if ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 200 && Math.abs(this.bullet.position.y - obj.position.y) < 200 && Math.abs(this.bullet.position.z - obj.position.z) < 200) {
+          collision = true;
           this.score += 10;
           $('#score').html(this.score);
         }
-        if (obj.position.z > 100 || ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 100 && Math.abs(this.bullet.position.y - obj.position.y) < 100 && Math.abs(this.bullet.position.z - obj.position.z) < 100)) {
+        if (obj.position.z > 100 || collision) {
           obj.position.z -= this.fogDepth;
           this.nextFrame++;
           switch (this.phase) {
@@ -722,9 +753,34 @@
       this.fov = this.fov - (this.fov - (65 + this.speed / 2)) / 4;
       this.camera.fov = this.fov;
       this.camera.updateProjectionMatrix();
-      this.engine_lt.scale.x = this.engine_lt.scale.y = this.engine_rt.scale.x = this.engine_rt.scale.y = (70 / this.fov) / 5;
-      engop = Math.random() / 10 + 0.9;
-      this.engine_lt.opacity = this.engine_rt.opacity = engop;
+      _ref2 = [this.engine_lt, this.engine_rt];
+      for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+        exhaust = _ref2[_k];
+        _ref3 = exhaust.children;
+        for (c = _l = 0, _len3 = _ref3.length; _l < _len3; c = ++_l) {
+          sprite = _ref3[c];
+          a = exhaust.attributes.randomness[c] + 1;
+          if (this.speed > 50) {
+            x = 30;
+          } else if (this.speed > 45) {
+            x = 40;
+          } else if (this.speed > 35) {
+            x = 60;
+          } else if (this.speed > 25) {
+            x = 90;
+          } else if (this.speed > 15) {
+            x = 200;
+          } else if (this.speed > 5) {
+            x = 300;
+          } else {
+            x = 500;
+          }
+          pulseFactor = Math.sin(a * this.tm / x) * 0.1 + 0.9;
+          sprite.position.x = exhaust.attributes.startPosition[c].x * pulseFactor;
+          sprite.position.y = exhaust.attributes.startPosition[c].y * pulseFactor;
+          sprite.position.z = Math.abs(exhaust.attributes.startPosition[c].z * pulseFactor * Math.min(this.speed / 3, 10));
+        }
+      }
       this.ctx.clearRect(0, 0, 300, 300);
       sp = this.speed / this.speedLimit * Math.PI * 2;
       if (this.speed > 0) {

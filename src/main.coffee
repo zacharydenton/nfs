@@ -170,7 +170,7 @@ class Game
 
     texture = THREE.ImageUtils.loadTexture('img/spark.png')
     @bullet = new THREE.Object3D()
-    attributes =
+    @bullet.attributes =
       startSize: []
       startPosition: []
       randomness: []
@@ -190,8 +190,8 @@ class Game
       sprite.material.color.setHSL(Math.random(), 0.9, 0.7)
       sprite.material.blending = THREE.AdditiveBlending
       @bullet.add sprite
-      attributes.startPosition.push sprite.position.clone()
-      attributes.randomness.push Math.random()
+      @bullet.attributes.startPosition.push sprite.position.clone()
+      @bullet.attributes.randomness.push Math.random()
 
     @bullet.position =
       x: @ship.position.x
@@ -292,21 +292,42 @@ class Game
     group.updateMatrix()
     @scene.add group
 
-    scale = 0.08
-    enginepng = THREE.ImageUtils.loadTexture("img/engine_small.png")
-    enginemat = new THREE.SpriteMaterial
-      map: enginepng
-      color: 0xffffff
-      fog: true
-      useScreenCoordinates: false
-    @engine_lt = new THREE.Sprite enginemat.clone()
+    texture = THREE.ImageUtils.loadTexture("img/spark.png")
+    createExhaust = ->
+      exhaust = new THREE.Object3D()
+      exhaust.attributes =
+        startSize: []
+        startPosition: []
+        randomness: []
+
+      total = 200
+      range = 10
+
+      for i in [0...total]
+        material = new THREE.SpriteMaterial
+          map: texture
+          useScreenCoordinates: false
+          color: 0xffffff
+        sprite = new THREE.Sprite(material)
+        sprite.scale.set 4, 4, 1.0
+        sprite.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+        sprite.position.setLength(range * Math.random())
+        sprite.material.color.setHSL(0.6 + 0.1 * Math.random(), 0.9, 0.7)
+        sprite.material.blending = THREE.AdditiveBlending
+        exhaust.add sprite
+        exhaust.attributes.startPosition.push sprite.position.clone()
+        exhaust.attributes.randomness.push Math.random()
+
+      exhaust
+
+    @engine_lt = createExhaust()
     @engine_lt.position.set -20, 0, 35
-    @engine_lt.scale.set 128, 128, 1.0
     group.add @engine_lt
-    @engine_rt = new THREE.Sprite enginemat.clone()
+
+    @engine_rt = createExhaust()
     @engine_rt.position.set 20, 0, 35
-    @engine_rt.scale.set 128, 128, 1.0
     group.add @engine_rt
+
     group
   
   onKeyDown: (event) =>
@@ -571,24 +592,32 @@ class Game
       @particles[1].position.z -= @fogDepth * 2
 
     if @bullet?
-      @bullet.position.z -= @speedLimit / 2
+      @bullet.position.z -= @speedLimit / 4
       if @bullet.position.z < -10000
         @scene.remove @bullet
         @bullet = null
       else
         @bullet.rotation.x -= 0.1
         @bullet.rotation.y += 0.03
+        for sprite, c in @bullet.children
+          a = @bullet.attributes.randomness[c] + 1
+          pulseFactor = Math.sin(a * @tm / 100) * 0.8 + 0.9
+          sprite.position.x = @bullet.attributes.startPosition[c].x * pulseFactor
+          sprite.position.y = @bullet.attributes.startPosition[c].y * pulseFactor
+          sprite.position.z = @bullet.attributes.startPosition[c].z * pulseFactor
   
     for obj in @objs.children
       obj.rotation.x += 0.01
       obj.rotation.y += 0.005
       obj.position.z += @speed
 
-      if (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 100 and Math.abs(@bullet.position.y - obj.position.y) < 100 and Math.abs(@bullet.position.z - obj.position.z) < 100)
+      collision = false
+      if (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 200 and Math.abs(@bullet.position.y - obj.position.y) < 200 and Math.abs(@bullet.position.z - obj.position.z) < 200)
+        collision = true
         @score += 10
         $('#score').html @score
 
-      if obj.position.z > 100 or (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 100 and Math.abs(@bullet.position.y - obj.position.y) < 100 and Math.abs(@bullet.position.z - obj.position.z) < 100)
+      if obj.position.z > 100 or collision
         obj.position.z -= @fogDepth
         @nextFrame++
   
@@ -669,9 +698,27 @@ class Game
     @camera.fov = @fov
     @camera.updateProjectionMatrix()
   
-    @engine_lt.scale.x = @engine_lt.scale.y = @engine_rt.scale.x = @engine_rt.scale.y = (70 / @fov) / 5
-    engop = Math.random() / 10 + 0.9
-    @engine_lt.opacity = @engine_rt.opacity = engop
+    for exhaust in [@engine_lt, @engine_rt]
+      for sprite, c in exhaust.children
+        a = exhaust.attributes.randomness[c] + 1
+        if @speed > 50
+          x = 30
+        else if @speed > 45
+          x = 40
+        else if @speed > 35
+          x = 60
+        else if @speed > 25
+          x = 90
+        else if @speed > 15
+          x = 200
+        else if @speed > 5
+          x = 300
+        else
+          x = 500
+        pulseFactor = Math.sin(a * @tm / x) * 0.1 + 0.9
+        sprite.position.x = exhaust.attributes.startPosition[c].x * pulseFactor
+        sprite.position.y = exhaust.attributes.startPosition[c].y * pulseFactor
+        sprite.position.z = Math.abs(exhaust.attributes.startPosition[c].z * pulseFactor * Math.min(@speed / 3, 10))
   
     @ctx.clearRect(0, 0, 300, 300)
     sp = @speed / @speedLimit * Math.PI * 2
