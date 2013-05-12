@@ -30,8 +30,9 @@
       this.geometry = this.dust = null;
       this.group2 = this.group2color = null;
       this.ship = null;
-      this.mouseX = this.mouseY = 0;
+      this.mouseX = this.mouseY = this.faceX = this.faceY = 0;
       this.particles = new Array();
+      this.bullet = null;
       this.objs = this.background = null;
       this.fov = 80;
       this.fogDepth = 3500;
@@ -190,6 +191,45 @@
       return b + (256 * g) | 0 + (256 * 256 * r) | 0;
     };
 
+    Game.prototype.fireWeapon = function() {
+      var attributes, i, material, range, sprite, texture, total, _i;
+
+      if (this.bullet != null) {
+        return;
+      }
+      texture = THREE.ImageUtils.loadTexture('img/spark.png');
+      this.bullet = new THREE.Object3D();
+      attributes = {
+        startSize: [],
+        startPosition: [],
+        randomness: []
+      };
+      total = 200;
+      range = 100;
+      for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
+        material = new THREE.SpriteMaterial({
+          map: texture,
+          useScreenCoordinates: false,
+          color: 0xffffff
+        });
+        sprite = new THREE.Sprite(material);
+        sprite.scale.set(32, 32, 1.0);
+        sprite.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+        sprite.position.setLength(range * (Math.random() * 0.1 + 0.9));
+        sprite.material.color.setHSL(Math.random(), 0.9, 0.7);
+        sprite.material.blending = THREE.AdditiveBlending;
+        this.bullet.add(sprite);
+        attributes.startPosition.push(sprite.position.clone());
+        attributes.randomness.push(Math.random());
+      }
+      this.bullet.position = {
+        x: this.ship.position.x,
+        y: this.ship.position.y,
+        z: this.ship.position.z - 100
+      };
+      return this.scene.add(this.bullet);
+    };
+
     Game.prototype.generateCubesRing = function(cubes, y, radius, spreading, depthSpread, sizeVariance) {
       var geometry, i, mergedGeo, mesh, _i;
 
@@ -337,13 +377,7 @@
     Game.prototype.onKeyPress = function(event) {
       switch (event.keyCode) {
         case 32:
-          if (this.view === 2) {
-            this.view = 1;
-            return this.zCamera2 = 0;
-          } else {
-            this.view = 2;
-            return this.zCamera2 = -220;
-          }
+          return this.fireWeapon();
       }
     };
 
@@ -532,8 +566,8 @@
           this.my = Math.max(Math.min(this.my, 1), -1);
           break;
         case 2:
-          this.mx = Math.max(Math.min(this.mouseX * this.sen, 1), -1);
-          this.my = Math.max(Math.min(this.mouseY * this.sen, 1), -1);
+          this.mx = Math.max(Math.min(this.faceX * this.sen, 1), -1);
+          this.my = Math.max(Math.min(this.faceY * this.sen, 1), -1);
       }
       if (this.yInvert === 1) {
         this.my = -this.my;
@@ -581,13 +615,27 @@
       if (this.particles[1].position.z > 100) {
         this.particles[1].position.z -= this.fogDepth * 2;
       }
+      if (this.bullet != null) {
+        this.bullet.position.z -= this.speedLimit / 2;
+        if (this.bullet.position.z < -10000) {
+          this.scene.remove(this.bullet);
+          this.bullet = null;
+        } else {
+          this.bullet.rotation.x -= 0.1;
+          this.bullet.rotation.y += 0.03;
+        }
+      }
       _ref = this.objs.children;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         obj = _ref[_i];
         obj.rotation.x += 0.01;
         obj.rotation.y += 0.005;
         obj.position.z += this.speed;
-        if (obj.position.z > 100) {
+        if ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 100 && Math.abs(this.bullet.position.y - obj.position.y) < 100 && Math.abs(this.bullet.position.z - obj.position.z) < 100) {
+          this.score += 10;
+          $('#score').html(this.score);
+        }
+        if (obj.position.z > 100 || ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 100 && Math.abs(this.bullet.position.y - obj.position.y) < 100 && Math.abs(this.bullet.position.z - obj.position.z) < 100)) {
           obj.position.z -= this.fogDepth;
           this.nextFrame++;
           switch (this.phase) {
@@ -804,8 +852,8 @@
       offsetX = e.x;
       offsetY = e.y;
     }
-    game.mouseX = (e.x - offsetX) * 0.08;
-    return game.mouseY = -(e.y - offsetY) * 0.08;
+    game.faceX = (e.x - offsetX) * 0.08;
+    return game.faceY = -(e.y - offsetY) * 0.08;
   }), false);
 
 }).call(this);

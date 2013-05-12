@@ -17,8 +17,9 @@ class Game
     @geometry = @dust = null
     @group2 = @group2color = null
     @ship = null
-    @mouseX = @mouseY = 0
+    @mouseX = @mouseY = @faceX = @faceY = 0
     @particles = new Array()
+    @bullet = null
     @objs = @background = null
     @fov = 80
     @fogDepth = 3500
@@ -163,6 +164,41 @@ class Game
   
   rgbColor: (r, g, b) ->
     b + (256 * g)|0 + (256 * 256 * r)|0
+
+  fireWeapon: ->
+    return if @bullet?
+
+    texture = THREE.ImageUtils.loadTexture('img/spark.png')
+    @bullet = new THREE.Object3D()
+    attributes =
+      startSize: []
+      startPosition: []
+      randomness: []
+
+    total = 200
+    range = 100
+
+    for i in [0...total]
+      material = new THREE.SpriteMaterial
+        map: texture
+        useScreenCoordinates: false
+        color: 0xffffff
+      sprite = new THREE.Sprite(material)
+      sprite.scale.set 32, 32, 1.0
+      sprite.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+      sprite.position.setLength(range * (Math.random() * 0.1 + 0.9))
+      sprite.material.color.setHSL(Math.random(), 0.9, 0.7)
+      sprite.material.blending = THREE.AdditiveBlending
+      @bullet.add sprite
+      attributes.startPosition.push sprite.position.clone()
+      attributes.randomness.push Math.random()
+
+    @bullet.position =
+      x: @ship.position.x
+      y: @ship.position.y
+      z: @ship.position.z - 100
+
+    @scene.add @bullet
   
   generateCubesRing: (cubes, y, radius, spreading, depthSpread, sizeVariance) ->
     mergedGeo = new THREE.Geometry()
@@ -294,12 +330,7 @@ class Game
   onKeyPress: (event) =>
     switch event.keyCode
       when 32 # space
-        if @view == 2
-          @view = 1
-          @zCamera2 = 0
-        else
-          @view = 2
-          @zCamera2 = -220
+        @fireWeapon()
   
   onDocumentMouseMove: (event) =>
     if @controls == 0
@@ -487,8 +518,8 @@ class Game
         @mx = Math.max(Math.min(@mx, 1), -1)
         @my = Math.max(Math.min(@my, 1), -1)
       when 2
-        @mx = Math.max(Math.min(@mouseX * @sen, 1), -1)
-        @my = Math.max(Math.min(@mouseY * @sen, 1), -1)
+        @mx = Math.max(Math.min(@faceX * @sen, 1), -1)
+        @my = Math.max(Math.min(@faceY * @sen, 1), -1)
   
     if @yInvert == 1 then @my = -@my
   
@@ -538,13 +569,26 @@ class Game
     @particles[1].position.z += @speed
     if @particles[1].position.z > 100
       @particles[1].position.z -= @fogDepth * 2
+
+    if @bullet?
+      @bullet.position.z -= @speedLimit / 2
+      if @bullet.position.z < -10000
+        @scene.remove @bullet
+        @bullet = null
+      else
+        @bullet.rotation.x -= 0.1
+        @bullet.rotation.y += 0.03
   
     for obj in @objs.children
       obj.rotation.x += 0.01
       obj.rotation.y += 0.005
-  
       obj.position.z += @speed
-      if obj.position.z > 100
+
+      if (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 100 and Math.abs(@bullet.position.y - obj.position.y) < 100 and Math.abs(@bullet.position.z - obj.position.z) < 100)
+        @score += 10
+        $('#score').html @score
+
+      if obj.position.z > 100 or (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 100 and Math.abs(@bullet.position.y - obj.position.y) < 100 and Math.abs(@bullet.position.z - obj.position.z) < 100)
         obj.position.z -= @fogDepth
         @nextFrame++
   
