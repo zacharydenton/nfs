@@ -229,8 +229,10 @@ class Game
     @scene.add @bullet
 
   createExplosion = (position) =>
+    return if game.explosions.length > 20
     particles = new THREE.Geometry()
     material = new THREE.ParticleBasicMaterial
+      blending: THREE.AdditiveBlending
 
     material.color.setHSL Math.random(), 0.9, 0.7
     total = 5000

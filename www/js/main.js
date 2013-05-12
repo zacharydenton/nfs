@@ -256,8 +256,13 @@
     createExplosion = function(position) {
       var explosion, i, material, particles, total, v, _i;
 
+      if (game.explosions.length > 20) {
+        return;
+      }
       particles = new THREE.Geometry();
-      material = new THREE.ParticleBasicMaterial;
+      material = new THREE.ParticleBasicMaterial({
+        blending: THREE.AdditiveBlending
+      });
       material.color.setHSL(Math.random(), 0.9, 0.7);
       total = 5000;
       for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
