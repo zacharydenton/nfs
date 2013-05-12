@@ -3,6 +3,9 @@
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   Game = (function() {
+    var createExplosion,
+      _this = this;
+
     function Game() {
       this.animate = __bind(this.animate, this);
       this.init = __bind(this.init, this);
@@ -34,6 +37,7 @@
       this.particles = new Array();
       this.bullet = null;
       this.objs = this.background = null;
+      this.explosions = [];
       this.fov = 80;
       this.fogDepth = 3500;
       this.tm = this.dtm = this.track = this.nextFrame = this.phase = null;
@@ -42,6 +46,8 @@
       this.sensList = ['low', 'default', 'high', 'very high', 'extreme'];
       this.sensValue = [1, 1.3, 1.6, 2, 4];
       this.controlsList = ['mouse', 'arrows / WASD', 'head tracking'];
+      this.spark = THREE.ImageUtils.loadTexture('img/spark.png');
+      this.particleImg = THREE.ImageUtils.loadTexture('img/particle.png');
       this.introReset(false);
       this.init();
       this.animate();
@@ -192,12 +198,11 @@
     };
 
     Game.prototype.fireWeapon = function() {
-      var i, material, range, sprite, texture, total, _i;
+      var i, material, range, sprite, total, _i;
 
       if (this.bullet != null) {
         return;
       }
-      texture = THREE.ImageUtils.loadTexture('img/spark.png');
       this.bullet = new THREE.Object3D();
       this.bullet.attributes = {
         startSize: [],
@@ -208,7 +213,7 @@
       range = 100;
       for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
         material = new THREE.SpriteMaterial({
-          map: texture,
+          map: this.spark,
           useScreenCoordinates: false,
           color: 0xffffff
         });
@@ -228,6 +233,26 @@
         z: this.ship.position.z - 100
       };
       return this.scene.add(this.bullet);
+    };
+
+    createExplosion = function(position) {
+      var explosion, i, material, particles, total, v, _i;
+
+      particles = new THREE.Geometry();
+      material = new THREE.ParticleBasicMaterial({
+        size: 2
+      });
+      material.color.setHSL(Math.random(), 0.9, 0.7);
+      total = 5000;
+      for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
+        v = new THREE.Vector3(0.5 - Math.random(), 0.5 - Math.random(), 0.5 - Math.random());
+        v.multiplyScalar(200 * Math.random() / v.length());
+        particles.vertices.push(v);
+      }
+      explosion = new THREE.ParticleSystem(particles, material);
+      explosion.position = position;
+      game.scene.add(explosion);
+      return game.explosions.push(explosion);
     };
 
     Game.prototype.generateCubesRing = function(cubes, y, radius, spreading, depthSpread, sizeVariance) {
@@ -267,7 +292,8 @@
     };
 
     Game.prototype.generateShip = function() {
-      var createExhaust, geometry_cube, geometry_cyl, geometry_cyl2, group, material, mergedGeo, mesh, mesh2, mesh3, texture;
+      var createExhaust, geometry_cube, geometry_cyl, geometry_cyl2, group, material, mergedGeo, mesh, mesh2, mesh3,
+        _this = this;
 
       mergedGeo = new THREE.Geometry();
       geometry_cube = new THREE.CubeGeometry(50, 50, 50);
@@ -317,7 +343,6 @@
       group.matrixAutoUpdate = true;
       group.updateMatrix();
       this.scene.add(group);
-      texture = THREE.ImageUtils.loadTexture("img/spark.png");
       createExhaust = function() {
         var exhaust, i, range, sprite, total, _i;
 
@@ -331,7 +356,7 @@
         range = 10;
         for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
           material = new THREE.SpriteMaterial({
-            map: texture,
+            map: _this.spark,
             useScreenCoordinates: false,
             color: 0xffffff
           });
@@ -553,7 +578,7 @@
     };
 
     Game.prototype.renderGame = function() {
-      var a, c, collision, exhaust, obj, pulseFactor, r, sp, sprite, tmp, x, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
+      var a, c, collision, exhaust, explosion, i, obj, pulseFactor, r, s, sp, sprite, tmp, x, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _ref, _ref1, _ref2, _ref3, _ref4;
 
       if (this.speed > 0) {
         this.clight = this.speed / this.speedLimit;
@@ -663,6 +688,7 @@
         collision = false;
         if ((this.bullet != null) && Math.abs(this.bullet.position.x - obj.position.x) < 200 && Math.abs(this.bullet.position.y - obj.position.y) < 200 && Math.abs(this.bullet.position.z - obj.position.z) < 200) {
           collision = true;
+          createExplosion(obj.position.clone());
           this.score += 10;
           $('#score').html(this.score);
         }
@@ -753,12 +779,35 @@
       this.fov = this.fov - (this.fov - (65 + this.speed / 2)) / 4;
       this.camera.fov = this.fov;
       this.camera.updateProjectionMatrix();
-      _ref2 = [this.engine_lt, this.engine_rt];
-      for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
-        exhaust = _ref2[_k];
-        _ref3 = exhaust.children;
-        for (c = _l = 0, _len3 = _ref3.length; _l < _len3; c = ++_l) {
-          sprite = _ref3[c];
+      _ref2 = this.explosions;
+      for (i = _k = 0, _len2 = _ref2.length; _k < _len2; i = ++_k) {
+        explosion = _ref2[i];
+        s = explosion.scale;
+        explosion.scale.set(1.2 * s.x, 1.2 * s.y, 1.2 * s.z);
+        if (explosion.scale.length() > 1000) {
+          this.scene.remove(explosion);
+          this.explosions[i] = null;
+        }
+      }
+      this.explosions = (function() {
+        var _l, _len3, _ref3, _results;
+
+        _ref3 = this.explosions;
+        _results = [];
+        for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
+          explosion = _ref3[_l];
+          if (explosion != null) {
+            _results.push(explosion);
+          }
+        }
+        return _results;
+      }).call(this);
+      _ref3 = [this.engine_lt, this.engine_rt];
+      for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
+        exhaust = _ref3[_l];
+        _ref4 = exhaust.children;
+        for (c = _m = 0, _len4 = _ref4.length; _m < _len4; c = ++_m) {
+          sprite = _ref4[c];
           a = exhaust.attributes.randomness[c] + 1;
           if (this.speed > 50) {
             x = 30;
@@ -792,7 +841,7 @@
 
     return Game;
 
-  })();
+  }).call(this);
 
   $(function() {
     return window.game = new Game();

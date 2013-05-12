@@ -21,6 +21,7 @@ class Game
     @particles = new Array()
     @bullet = null
     @objs = @background = null
+    @explosions = []
     @fov = 80
     @fogDepth = 3500
     @tm = @dtm = @track = @nextFrame = @phase = null
@@ -29,6 +30,8 @@ class Game
     @sensList = ['low', 'default', 'high', 'very high', 'extreme']
     @sensValue = [1, 1.3, 1.6, 2, 4]
     @controlsList = ['mouse', 'arrows / WASD', 'head tracking']
+    @spark = THREE.ImageUtils.loadTexture('img/spark.png')
+    @particleImg = THREE.ImageUtils.loadTexture('img/particle.png')
 
     @introReset false
     @init()
@@ -168,7 +171,6 @@ class Game
   fireWeapon: ->
     return if @bullet?
 
-    texture = THREE.ImageUtils.loadTexture('img/spark.png')
     @bullet = new THREE.Object3D()
     @bullet.attributes =
       startSize: []
@@ -180,7 +182,7 @@ class Game
 
     for i in [0...total]
       material = new THREE.SpriteMaterial
-        map: texture
+        map: @spark
         useScreenCoordinates: false
         color: 0xffffff
       sprite = new THREE.Sprite(material)
@@ -199,6 +201,25 @@ class Game
       z: @ship.position.z - 100
 
     @scene.add @bullet
+
+  createExplosion = (position) =>
+    particles = new THREE.Geometry()
+    material = new THREE.ParticleBasicMaterial
+      size: 2
+
+    material.color.setHSL Math.random(), 0.9, 0.7
+    total = 5000
+
+    for i in [0...total]
+      # random point in sphere
+      v = new THREE.Vector3((0.5 - Math.random()), (0.5 - Math.random()), (0.5 - Math.random()))
+      v.multiplyScalar 200 * Math.random() / v.length()
+      particles.vertices.push v
+
+    explosion = new THREE.ParticleSystem(particles, material)
+    explosion.position = position
+    game.scene.add explosion
+    game.explosions.push explosion
   
   generateCubesRing: (cubes, y, radius, spreading, depthSpread, sizeVariance) ->
     mergedGeo = new THREE.Geometry()
@@ -292,8 +313,7 @@ class Game
     group.updateMatrix()
     @scene.add group
 
-    texture = THREE.ImageUtils.loadTexture("img/spark.png")
-    createExhaust = ->
+    createExhaust = =>
       exhaust = new THREE.Object3D()
       exhaust.attributes =
         startSize: []
@@ -305,7 +325,7 @@ class Game
 
       for i in [0...total]
         material = new THREE.SpriteMaterial
-          map: texture
+          map: @spark
           useScreenCoordinates: false
           color: 0xffffff
         sprite = new THREE.Sprite(material)
@@ -614,6 +634,7 @@ class Game
       collision = false
       if (@bullet? and Math.abs(@bullet.position.x - obj.position.x) < 200 and Math.abs(@bullet.position.y - obj.position.y) < 200 and Math.abs(@bullet.position.z - obj.position.z) < 200)
         collision = true
+        createExplosion obj.position.clone()
         @score += 10
         $('#score').html @score
 
@@ -697,6 +718,15 @@ class Game
     @fov = @fov - (@fov - (65 + @speed / 2)) / 4
     @camera.fov = @fov
     @camera.updateProjectionMatrix()
+
+    for explosion, i in @explosions
+      s = explosion.scale
+      explosion.scale.set 1.2 * s.x, 1.2 * s.y, 1.2 * s.z
+      if explosion.scale.length() > 1000
+        @scene.remove explosion
+        @explosions[i] = null
+
+    @explosions = (explosion for explosion in @explosions when explosion?)
   
     for exhaust in [@engine_lt, @engine_rt]
       for sprite, c in exhaust.children
