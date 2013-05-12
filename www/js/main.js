@@ -47,7 +47,6 @@
       this.sensValue = [1, 1.3, 1.6, 2, 4];
       this.controlsList = ['mouse', 'arrows / WASD', 'head tracking'];
       this.spark = THREE.ImageUtils.loadTexture('img/spark.png');
-      this.particleImg = THREE.ImageUtils.loadTexture('img/particle.png');
       this.introReset(false);
       this.init();
       this.animate();
@@ -197,6 +196,25 @@
       return b + (256 * g) | 0 + (256 * 256 * r) | 0;
     };
 
+    Game.prototype.createSkybox = function() {
+      var cubemap, material, shader, skybox, urls;
+
+      urls = ['img/sky05_lf.png', 'img/sky05_rt.png', 'img/sky05_up.png', 'img/sky05_dn.png', 'img/sky05_ft.png', 'img/sky05_bk.png'];
+      cubemap = THREE.ImageUtils.loadTextureCube(urls);
+      cubemap.format = THREE.RGBFormat;
+      shader = THREE.ShaderLib["cube"];
+      shader.uniforms["tCube"].value = cubemap;
+      material = new THREE.ShaderMaterial({
+        fragmentShader: shader.fragmentShader,
+        vertexShader: shader.vertexShader,
+        uniforms: shader.uniforms,
+        depthWrite: false,
+        side: THREE.BackSide
+      });
+      skybox = new THREE.Mesh(new THREE.CubeGeometry(1.6 * this.fogDepth, 1.6 * this.fogDepth, 1.6 * this.fogDepth), material);
+      return this.scene.add(skybox);
+    };
+
     Game.prototype.fireWeapon = function() {
       var i, material, range, sprite, total, _i;
 
@@ -239,18 +257,19 @@
       var explosion, i, material, particles, total, v, _i;
 
       particles = new THREE.Geometry();
-      material = new THREE.ParticleBasicMaterial({
-        size: 2
-      });
+      material = new THREE.ParticleBasicMaterial;
       material.color.setHSL(Math.random(), 0.9, 0.7);
       total = 5000;
       for (i = _i = 0; 0 <= total ? _i < total : _i > total; i = 0 <= total ? ++_i : --_i) {
         v = new THREE.Vector3(0.5 - Math.random(), 0.5 - Math.random(), 0.5 - Math.random());
-        v.multiplyScalar(200 * Math.random() / v.length());
+        v.multiplyScalar(50 * (0.9 + 0.1 * Math.random()) / v.length());
         particles.vertices.push(v);
       }
       explosion = new THREE.ParticleSystem(particles, material);
       explosion.position = position;
+      explosion.rotation.x = Math.random();
+      explosion.rotation.y = Math.random();
+      explosion.rotation.z = Math.random();
       game.scene.add(explosion);
       return game.explosions.push(explosion);
     };
@@ -783,8 +802,8 @@
       for (i = _k = 0, _len2 = _ref2.length; _k < _len2; i = ++_k) {
         explosion = _ref2[i];
         s = explosion.scale;
-        explosion.scale.set(1.2 * s.x, 1.2 * s.y, 1.2 * s.z);
-        if (explosion.scale.length() > 1000) {
+        explosion.scale.set(1.08 * s.x, 1.02 * s.y, 1.08 * s.z);
+        if (explosion.scale.length() > 100) {
           this.scene.remove(explosion);
           this.explosions[i] = null;
         }

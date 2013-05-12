@@ -31,7 +31,6 @@ class Game
     @sensValue = [1, 1.3, 1.6, 2, 4]
     @controlsList = ['mouse', 'arrows / WASD', 'head tracking']
     @spark = THREE.ImageUtils.loadTexture('img/spark.png')
-    @particleImg = THREE.ImageUtils.loadTexture('img/particle.png')
 
     @introReset false
     @init()
@@ -168,6 +167,33 @@ class Game
   rgbColor: (r, g, b) ->
     b + (256 * g)|0 + (256 * 256 * r)|0
 
+  createSkybox: ->
+    urls = [
+      'img/sky05_lf.png',
+      'img/sky05_rt.png',
+      'img/sky05_up.png',
+      'img/sky05_dn.png',
+      'img/sky05_ft.png',
+      'img/sky05_bk.png',
+    ]
+
+    cubemap = THREE.ImageUtils.loadTextureCube(urls)
+    cubemap.format = THREE.RGBFormat
+
+    shader = THREE.ShaderLib[ "cube" ]
+    shader.uniforms[ "tCube" ].value = cubemap
+
+    material = new THREE.ShaderMaterial
+      fragmentShader: shader.fragmentShader,
+      vertexShader: shader.vertexShader,
+      uniforms: shader.uniforms,
+      depthWrite: false,
+      side: THREE.BackSide
+
+    skybox = new THREE.Mesh(new THREE.CubeGeometry(1.6 * @fogDepth, 1.6 * @fogDepth, 1.6 * @fogDepth), material)
+
+    @scene.add skybox
+
   fireWeapon: ->
     return if @bullet?
 
@@ -205,7 +231,6 @@ class Game
   createExplosion = (position) =>
     particles = new THREE.Geometry()
     material = new THREE.ParticleBasicMaterial
-      size: 2
 
     material.color.setHSL Math.random(), 0.9, 0.7
     total = 5000
@@ -213,11 +238,14 @@ class Game
     for i in [0...total]
       # random point in sphere
       v = new THREE.Vector3((0.5 - Math.random()), (0.5 - Math.random()), (0.5 - Math.random()))
-      v.multiplyScalar 200 * Math.random() / v.length()
+      v.multiplyScalar 50 * (0.9 + 0.1 * Math.random()) / v.length()
       particles.vertices.push v
 
     explosion = new THREE.ParticleSystem(particles, material)
     explosion.position = position
+    explosion.rotation.x = Math.random()
+    explosion.rotation.y = Math.random()
+    explosion.rotation.z = Math.random()
     game.scene.add explosion
     game.explosions.push explosion
   
@@ -450,6 +478,8 @@ class Game
   
     @group2.position.z = -@fogDepth
     @group2.rotation.x = Math.PI / 2
+
+    #@createSkybox()
   
     @objs = new THREE.Object3D()
     @scene.add @objs
@@ -721,8 +751,8 @@ class Game
 
     for explosion, i in @explosions
       s = explosion.scale
-      explosion.scale.set 1.2 * s.x, 1.2 * s.y, 1.2 * s.z
-      if explosion.scale.length() > 1000
+      explosion.scale.set 1.08 * s.x, 1.02 * s.y, 1.08 * s.z
+      if explosion.scale.length() > 100
         @scene.remove explosion
         @explosions[i] = null
 
